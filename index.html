@@ -87,7 +87,7 @@ SimpleRTC.prototype = {
 		this.socket.send(JSON.stringify({type:'answerSDP',sdp:sdp}));
 	},
 	onAnswerSDP: function(sdp){
-		this.pc.setRemoteDescription(new RTCSessionDescription(sdp), function(){console.log('asdf');}, error);
+		this.pc.setRemoteDescription(new RTCSessionDescription(sdp));
 	},
 	getUserMedia: function(){
 		var me = this;
@@ -115,8 +115,8 @@ socket.onerror = function (e) {
 	console.log('websocket出错->' + JSON.stringify(e));
 };
 socket.onmessage = function (e) {
-	console.log('收到->' + e.data);
 	var data = JSON.parse( e.data );
+	console.log('收到->' + data.type);
 	switch(data.type){
 		case 'connect_req':
 		rtc_ins.createPeerConnection({type: 'offer'});
@@ -129,9 +129,9 @@ socket.onmessage = function (e) {
 		break;
 		case 'ICE':
 		rtc_ins.onAddIceCandidate(data.ice);
+		break;
 	}
 	
-	// socket.send('测试消息')
 };
 
 function start(room, socket){

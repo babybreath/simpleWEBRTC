@@ -22,8 +22,8 @@ wss.on('connection', function(ws){
 		console.log('websocket出错->' + JSON.stringify(e));
 	});
 	ws.on('message', function(data){
-		console.log('收到->' + data);
 		var data = JSON.parse(data);
+		console.log('收到->' + data.type);
 		switch(data.type){
 			case 'regist':
 			var room = data.room;
@@ -78,7 +78,6 @@ var fs = require('fs')
 var http = require('http');
 var indexData = fs.readFileSync('./index.html');
 http.createServer(function (req, res) {
-	console.log(req.url)
 	res.end( indexData );
 }).listen(81, '127.0.0.1');
 console.log('Server running at http://127.0.0.1:81/');
