@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<style>
+.box{position: relative;}
+#remoteVideo{position: absolute;width:50%;left:0;}
+#localVideo{position: absolute;width:20%;left:50%;}
+</style>
+</head>
+<body>
+	<input id="roomNo" type="text" value="" placeholder="请输入房间号" />
+	<button id="start">开始</button>
+	<div class="box">
+		<video id="remoteVideo" controls autoplay></video>
+		<video id="localVideo" controls autoplay></video>
+	</div>
+
+<script>
+function error(e){
+	console.log(e);
+}
+// RTC对象
+var SimpleRTC = function(lv, rv){
+	this.pc = null;
+	this.socket = null;
+	this.localStream = null;
+	this.remoteStream = null;
+	this.rtcType = null;
+	this.localVideoDom = lv;
+	this.remoteVideoDom = rv;
+}
+SimpleRTC.prototype = {
+	setSocket: function(soc){
+		this.socket = soc
+	},
+	createPeerConnection: function(config){
+		var constraints = {
+			'mandatory': {
+			OfferToReceiveAudio: true,
+			OfferToReceiveVideo: true}
+		};
+		var iceServers = {iceServers: [{url: 'stun:stun.l.google.com:19302'},
+		 {url: 'stun:stun.anyfirewall.com:3478'}, 
+		 {url: 'turn:turn.bistri.com:80', credential: 'homeo', username: 'homeo'}, 
+		 {url: 'turn:turn.anyfirewall.com:443?transport=tcp', credential: 'webrtc', username: 'webrtc'}]};
+		this.pc = new webkitRTCPeerConnection( iceServers, constraints);
+		this.pc.onicecandidate = this.onICE.bind( this );
+		this.pc.onaddstream = this.onGotRemoteStream.bind( this );
+		// 获取媒体
+		if(this.localStream){
+			this.pc.addStream(this.localStream);
+		}
+
+		switch(config.type){
+			case 'offer':
+			this.pc.createOffer(this.createOfferSuccess.bind(this), error, constraints);
+			break;
+			case 'answer':
+			var me = this;
+			this.pc.setRemoteDescription(new RTCSessionDescription(config.sdp), function(){
+				me.pc.createAnswer(me.createAnswerSuccess.bind(me), error, constraints);
+			}, error);
+			
+			break;
+		}
+	},
+	onICE: function(e){
+		if(e.candidate){
+			this.socket.send(JSON.stringify({type: 'ICE', ice: e.candidate}));
+		}
+	},
+	onGotRemoteStream: function(e){
+		this.remoteStream = e.stream;
+		this.remoteVideoDom.setAttribute( 'src', webkitURL.createObjectURL( this.remoteStream ));
+		//this.remoteVideoDom.play();
+	},
+	onAddIceCandidate: function(ice){
+		this.pc.addIceCandidate(new RTCIceCandidate(ice));
+	},
+	createOfferSuccess: function(sdp){
+		this.pc.setLocalDescription(sdp);
+		this.socket.send(JSON.stringify({type:'offerSDP',sdp:sdp}));
+	},
+	createAnswerSuccess: function(sdp){
+		this.pc.setLocalDescription(sdp);
+		this.socket.send(JSON.stringify({type:'answerSDP',sdp:sdp}));
+	},
+	onAnswerSDP: function(sdp){
+		this.pc.setRemoteDescription(new RTCSessionDescription(sdp), function(){console.log('asdf');}, error);
+	},
+	getUserMedia: function(){
+		var me = this;
+		navigator.webkitGetUserMedia({audio: true, video: true}, function(stream){
+			me.localStream = stream;
+			me.localVideoDom.setAttribute( 'src', webkitURL.createObjectURL( me.localStream ));
+		}, error);
+	}
+}
+
+var rtc_ins = new SimpleRTC(document.getElementById('localVideo'), document.getElementById('remoteVideo'));
+
+rtc_ins.getUserMedia();
+
+var host = "ws://127.0.0.1:82";
+var socket = new WebSocket(host);
+socket.onopen = function () {
+	console.log('websocket已连接');
+	
+};
+socket.onclose = function () {
+	console.log('websocket已关闭');
+};
+socket.onerror = function (e) {
+	console.log('websocket出错->' + JSON.stringify(e));
+};
+socket.onmessage = function (e) {
+	console.log('收到->' + e.data);
+	var data = JSON.parse( e.data );
+	switch(data.type){
+		case 'connect_req':
+		rtc_ins.createPeerConnection({type: 'offer'});
+		break;
+		case 'offerSDP':
+		rtc_ins.createPeerConnection({type: 'answer', sdp: data.sdp});
+		break;
+		case 'answerSDP':
+		rtc_ins.onAnswerSDP(data.sdp);
+		break;
+		case 'ICE':
+		rtc_ins.onAddIceCandidate(data.ice);
+	}
+	
+	// socket.send('测试消息')
+};
+
+function start(room, socket){
+	rtc_ins.setSocket(socket);
+	socket.send(JSON.stringify({type: 'regist', room: room}));
+}
+
+document.getElementById('start').addEventListener('click', function(){
+	var roomNo = document.getElementById('roomNo').value;
+	start(roomNo, socket);
+}, false);
+
+</script>
+</body>
+</html>
