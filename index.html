@@ -102,7 +102,7 @@ var rtc_ins = new SimpleRTC(document.getElementById('localVideo'), document.getE
 
 rtc_ins.getUserMedia();
 
-var host = "ws://127.0.0.1:82";
+var host = "ws://" + location.hostname;
 var socket = new WebSocket(host);
 socket.onopen = function () {
 	console.log('websocket已连接');

@@ -1,5 +1,5 @@
 var WebSocketServer = require('ws').Server;
-var wss = new WebSocketServer({port: 82});
+var wss = new WebSocketServer({port: 8081});
 
 var allRoom = {};
 wss.on('connection', function(ws){
@@ -79,5 +79,5 @@ var http = require('http');
 var indexData = fs.readFileSync('./index.html');
 http.createServer(function (req, res) {
 	res.end( indexData );
-}).listen(81, '127.0.0.1');
-console.log('Server running at http://127.0.0.1:81/');
+}).listen(8080);
+console.log('Server running at http://127.0.0.1:8080/');
